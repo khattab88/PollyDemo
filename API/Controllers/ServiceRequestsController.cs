@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Polly;
 using RestSharp;
 
 namespace API.Controllers
@@ -18,8 +19,21 @@ namespace API.Controllers
         [HttpGet(Name = "GetData")]
         public async Task<IActionResult> Get()
         {
-            var result = await ConnectToApiV2();
+            string result = null;
 
+            var retryPolicy = Policy
+                .Handle<Exception>()
+                .RetryAsync(5, onRetry: (exception, retryCount) => 
+                {
+                    Console.WriteLine($"Error: {exception.Message}, Retry Count: {retryCount}");
+                });
+
+            await retryPolicy.ExecuteAsync(async () => 
+            {
+                result = await ConnectToApiV2();
+            });
+
+            // result = await ConnectToApiV2();
             return Ok(result);
         }
 
@@ -42,7 +56,7 @@ namespace API.Controllers
             else
             {
                 Console.Out.WriteLine(response.ErrorMessage);
-                return response.ErrorMessage;
+                throw new Exception("Unable to connect to service");
             }
         }
 
