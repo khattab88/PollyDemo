@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Polly;
 using Polly.Retry;
 using RestSharp;
+using System;
 
 namespace API.Controllers
 {
@@ -32,17 +33,40 @@ namespace API.Controllers
             //    });
 
             /// retry and wait policy
+            //retryPolicy = Policy
+            //    .Handle<Exception>()
+            //    .WaitAndRetryAsync(5, i => TimeSpan.FromSeconds(10), onRetry: (exception, timespan) =>
+            //    {
+            //        Console.WriteLine($"Error: {exception.Message}, after waiting for: {timespan.TotalSeconds} seconds");
+            //    });
+
+
+            //await retryPolicy.ExecuteAsync(async () =>
+            //{
+            //    result = await ConnectToApiV2();
+            //});
+
+            // ----------------------------------------------------------------------------
+
+            /// circut breaker
             retryPolicy = Policy
                 .Handle<Exception>()
-                .WaitAndRetryAsync(5, i => TimeSpan.FromSeconds(10), onRetry: (exception, timespan) =>
+                .WaitAndRetryAsync(5, i => TimeSpan.FromSeconds(5), (exception, timeSpan) =>
                 {
-                    Console.WriteLine($"Error: {exception.Message}, after waiting for: {timespan.TotalSeconds} seconds");
+                    Console.WriteLine($"Error: {exception.Message}, after waiting for: {timeSpan.TotalSeconds} seconds");
                 });
 
-            await retryPolicy.ExecuteAsync(async () => 
+            var circutBreakerPolicy = Policy
+                .Handle<Exception>()
+                .CircuitBreakerAsync(3, TimeSpan.FromSeconds(30));
+
+            var finalPolicy = retryPolicy.WrapAsync(circutBreakerPolicy);
+
+            await finalPolicy.ExecuteAsync(async () =>
             {
                 result = await ConnectToApiV2();
             });
+
 
             // result = await ConnectToApiV2();
             return Ok(result);
