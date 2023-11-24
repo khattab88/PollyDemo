@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Polly;
+using Polly.Retry;
 using RestSharp;
 
 namespace API.Controllers
@@ -19,13 +20,23 @@ namespace API.Controllers
         [HttpGet(Name = "GetData")]
         public async Task<IActionResult> Get()
         {
+            AsyncRetryPolicy retryPolicy = null;
             string result = null;
 
-            var retryPolicy = Policy
+            /// simple retry policy
+            //retryPolicy = Policy
+            //    .Handle<Exception>()
+            //    .RetryAsync(5, onRetry: (exception, retryCount) => 
+            //    {
+            //        Console.WriteLine($"Error: {exception.Message}, Retry Count: {retryCount}");
+            //    });
+
+            /// retry and wait policy
+            retryPolicy = Policy
                 .Handle<Exception>()
-                .RetryAsync(5, onRetry: (exception, retryCount) => 
+                .WaitAndRetryAsync(5, i => TimeSpan.FromSeconds(10), onRetry: (exception, timespan) =>
                 {
-                    Console.WriteLine($"Error: {exception.Message}, Retry Count: {retryCount}");
+                    Console.WriteLine($"Error: {exception.Message}, after waiting for: {timespan.TotalSeconds} seconds");
                 });
 
             await retryPolicy.ExecuteAsync(async () => 
